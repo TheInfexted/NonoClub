@@ -73,6 +73,7 @@ async function parse() {
 }
 
 const dupSet = computed(() => new Set<string>(dryRun.value?.duplicates ?? []))
+const reactivateSet = computed(() => new Set<string>(dryRun.value?.reactivations ?? []))
 const importableRows = computed(() => rows.value.filter(r => !dupSet.value.has(r.externalOrderId)))
 const readyRows = computed(() => importableRows.value.filter(r => !!r.ambassadorId))
 const unassignedCount = computed(() => importableRows.value.filter(r => !r.ambassadorId).length)
@@ -130,9 +131,10 @@ async function commit() {
   } finally { importing.value = false }
 }
 
-function rowStatus(r: ParsedRow): { tone: 'slate' | 'emerald' | 'amber'; label: string } {
+function rowStatus(r: ParsedRow): { tone: 'slate' | 'emerald' | 'amber' | 'rose'; label: string } {
   if (dupSet.value.has(r.externalOrderId)) return { tone: 'slate', label: 'Duplicate' }
   if (!r.ambassadorId) return { tone: 'amber', label: 'Unassigned' }
+  if (reactivateSet.value.has(r.externalOrderId)) return { tone: 'rose', label: 'Re-import' }
   return { tone: 'emerald', label: 'Ready' }
 }
 
@@ -256,6 +258,14 @@ const statusOptions = [
         that this club doesn't have yet. The import will be rejected until you add
         {{ dryRun.unknownTypes.length === 1 ? 'it' : 'them' }} under Settings → Sale types —
         you can do that in another tab and import again without re-parsing.
+      </span>
+    </p>
+
+    <p v-if="reactivateSet.size" class="text-[12px] text-[var(--color-brand-dark)] bg-[var(--color-brand-soft)] border border-[var(--color-brand)]/20 rounded-lg px-3.5 py-2.5 inline-flex items-start gap-2 max-w-2xl">
+      <span aria-hidden="true">↻</span>
+      <span>
+        {{ reactivateSet.size }} receipt{{ reactivateSet.size === 1 ? ' was' : 's were' }} previously voided —
+        re-importing reuses {{ reactivateSet.size === 1 ? 'that record' : 'those records' }} and clears the void, so {{ reactivateSet.size === 1 ? 'it is' : 'they are' }} not duplicated.
       </span>
     </p>
 

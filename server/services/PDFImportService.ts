@@ -91,8 +91,11 @@ export const PDFImportService = {
   async dryRun(clubId: number, buf: Buffer) {
     const r = await parsePdfBuffer(buf)
     const orderIds = r.rows.map(x => x.externalOrderId)
-    const dups = await SaleRepo.findByExternalOrderIds(clubId, orderIds)
-    const dupSet = new Set(dups.map(d => d.externalOrderId))
+    const matches = await SaleRepo.findByExternalOrderIds(clubId, orderIds)
+    // A voided receipt no longer occupies the ledger — re-importing it reuses
+    // its row (the unique slot blocks a fresh insert) rather than duplicating.
+    const dupSet = new Set(matches.filter(d => d.status !== 'voided').map(d => d.externalOrderId))
+    const reactivateSet = new Set(matches.filter(d => d.status === 'voided').map(d => d.externalOrderId))
     const reportedRates = Array.from(new Set(r.rows.map(x => x.reportedRate).filter((x): x is number => x !== undefined)))
 
     // Formats with per-row sale types: surface any type the club hasn't
@@ -114,6 +117,7 @@ export const PDFImportService = {
       errors: r.errors,
       parsedTotal: r.rows.reduce((a, x) => a + x.amount, 0),
       duplicates: Array.from(dupSet),
+      reactivations: Array.from(reactivateSet),
       rows: r.rows,
     }
   },
@@ -167,13 +171,19 @@ export const PDFImportService = {
       throw ApiError.validation({ saleType: `This club has no sale type named: ${missing.join(', ')} — add it in Settings first` })
     }
 
-    const existing = await SaleRepo.findByExternalOrderIds(clubId, v.rows.map(r => r.externalOrderId))
-    const existingSet = new Set(existing.map(e => e.externalOrderId))
-    const toInsert = v.rows.filter(r => !existingSet.has(r.externalOrderId))
+    const matches = await SaleRepo.findByExternalOrderIds(clubId, v.rows.map(r => r.externalOrderId))
+    const activeSet = new Set(matches.filter(m => m.status !== 'voided').map(m => m.externalOrderId))
+    const voidedById = new Map(matches.filter(m => m.status === 'voided').map(m => [m.externalOrderId, m.id]))
 
-    if (toInsert.length === 0) return { imported: 0, skipped: v.rows.length }
+    // Active receipts are skipped as duplicates. Voided receipts get reactivated
+    // in place — their unique (club_id, external_order_id) slot blocks a fresh
+    // insert — overwriting the row with the new import and clearing the void.
+    const toReactivate = v.rows.filter(r => voidedById.has(r.externalOrderId))
+    const toInsert = v.rows.filter(r => !activeSet.has(r.externalOrderId) && !voidedById.has(r.externalOrderId))
 
-    const records = toInsert.map(r => {
+    if (toReactivate.length === 0 && toInsert.length === 0) return { imported: 0, skipped: v.rows.length }
+
+    const buildFields = (r: (typeof v.rows)[number]) => {
       const amb = ambassadors.get(r.ambassadorId)!
       const role = rolesById.get(amb.roleId)!
       const type = rowType(r)
@@ -191,20 +201,30 @@ export const PDFImportService = {
         confirmedCommissionRate: v.status === 'confirmed' ? resolveCommissionRate(role, type) : null,
         confirmedBonusRate: v.status === 'confirmed' ? role.bonusRate : null,
         confirmedAt: v.status === 'confirmed' ? new Date() : null,
-        createdBy: actor.id,
       }
-    })
-
-    try {
-      await SaleRepo.insertMany(records as any)
-    } catch (e: any) {
-      // The (club_id, external_order_id) unique index is the backstop against
-      // two imports racing past the pre-filter — surface it cleanly.
-      if (e?.code === 'ER_DUP_ENTRY' || /Duplicate entry/.test(String(e?.message))) {
-        throw ApiError.conflict('Some rows were imported by a concurrent request — run the import again to skip them')
-      }
-      throw e
     }
-    return { imported: toInsert.length, skipped: v.rows.length - toInsert.length }
+
+    // ponytail: per-row updates; batch into a CASE update only if a statement
+    // ever re-imports hundreds of voided rows at once (it won't in practice).
+    for (const r of toReactivate) {
+      await SaleRepo.update(voidedById.get(r.externalOrderId)!, { ...buildFields(r), voidedAt: null } as any)
+    }
+
+    if (toInsert.length > 0) {
+      const records = toInsert.map(r => ({ ...buildFields(r), createdBy: actor.id }))
+      try {
+        await SaleRepo.insertMany(records as any)
+      } catch (e: any) {
+        // The (club_id, external_order_id) unique index is the backstop against
+        // two imports racing past the pre-filter — surface it cleanly.
+        if (e?.code === 'ER_DUP_ENTRY' || /Duplicate entry/.test(String(e?.message))) {
+          throw ApiError.conflict('Some rows were imported by a concurrent request — run the import again to skip them')
+        }
+        throw e
+      }
+    }
+
+    const imported = toInsert.length + toReactivate.length
+    return { imported, skipped: v.rows.length - imported }
   },
 }

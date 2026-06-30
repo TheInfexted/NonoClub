@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const inserted: any[] = []
+const updated: any[] = []
 const role = { id: 7, name: 'VIP', tier: 'ambassador', baseRate: '9.50', bonusRate: '1.25', rateOverrides: { BGO: '11.00' } }
 
 vi.mock('~~/server/repositories/SaleRepository', () => ({
   SaleRepo: {
-    findByExternalOrderIds: vi.fn(async (_clubId: number, _ids: string[]) => []),
+    findByExternalOrderIds: vi.fn(async (_clubId: number, _ids: string[]) => [] as any[]),
     insertMany: vi.fn(async (rows: any[]) => { inserted.push(...rows) }),
+    update: vi.fn(async (id: number, patch: any) => { updated.push({ id, patch }) }),
   },
 }))
 vi.mock('~~/server/repositories/AmbassadorRepository', () => ({
@@ -36,11 +38,12 @@ vi.mock('~~/server/utils/permissions', async () => {
 })
 
 import { PDFImportService } from '~~/server/services/PDFImportService'
+import { SaleRepo } from '~~/server/repositories/SaleRepository'
 
 const admin = { id: 1, roleName: 'admin', tier: 'admin' } as any
 const row = { date: '2026-04-02', externalOrderId: 'T260402000000001', tableNumber: 'L1', amount: 1000, ambassadorId: 5 }
 
-beforeEach(() => { inserted.length = 0 })
+beforeEach(() => { inserted.length = 0; updated.length = 0; vi.mocked(SaleRepo.findByExternalOrderIds).mockReset().mockResolvedValue([] as any) })
 
 describe('PDFImportService.commit', () => {
   it('freezes rates from the ambassador role when importing as confirmed', async () => {
@@ -88,5 +91,29 @@ describe('PDFImportService.commit', () => {
     await expect(
       PDFImportService.commit(admin, 1, { status: 'draft', rows: [badRow] }),
     ).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('reactivates a previously-voided receipt in place instead of inserting a duplicate', async () => {
+    vi.mocked(SaleRepo.findByExternalOrderIds).mockResolvedValueOnce([
+      { id: 42, externalOrderId: row.externalOrderId, status: 'voided' },
+    ] as any)
+    const res = await PDFImportService.commit(admin, 1, { status: 'confirmed', rows: [row] })
+    expect(inserted).toHaveLength(0)                       // not a fresh insert — slot is reused
+    expect(updated).toHaveLength(1)
+    expect(updated[0].id).toBe(42)                         // the voided row itself
+    expect(updated[0].patch.voidedAt).toBeNull()           // void cleared
+    expect(updated[0].patch.status).toBe('confirmed')
+    expect(updated[0].patch.confirmedCommissionRate).toBe('9.50')
+    expect(res).toEqual({ imported: 1, skipped: 0 })
+  })
+
+  it('still skips an active (already-imported) receipt as a duplicate', async () => {
+    vi.mocked(SaleRepo.findByExternalOrderIds).mockResolvedValueOnce([
+      { id: 99, externalOrderId: row.externalOrderId, status: 'confirmed' },
+    ] as any)
+    const res = await PDFImportService.commit(admin, 1, { status: 'draft', rows: [row] })
+    expect(inserted).toHaveLength(0)
+    expect(updated).toHaveLength(0)
+    expect(res).toEqual({ imported: 0, skipped: 1 })
   })
 })

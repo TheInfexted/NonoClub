@@ -46,7 +46,7 @@ export const SaleRepo = {
   // Dedupe is per club: different clubs may run POS vendors with overlapping order-id spaces.
   findByExternalOrderIds(clubId: number, orderIds: string[]) {
     if (orderIds.length === 0) return Promise.resolve([])
-    return useDB().select({ id: schema.sales.id, externalOrderId: schema.sales.externalOrderId })
+    return useDB().select({ id: schema.sales.id, externalOrderId: schema.sales.externalOrderId, status: schema.sales.status })
       .from(schema.sales)
       .where(and(
         eq(schema.sales.clubId, clubId),

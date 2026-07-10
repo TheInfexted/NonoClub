@@ -37,7 +37,15 @@ const stage = computed<'upload' | 'preview' | 'done'>(() => {
 })
 
 function onPickFile(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0] ?? null
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0] ?? null
+  // Mirror the server's check: an empty type is allowed (some platforms omit it for PDFs)
+  if (f && f.type && f.type !== 'application/pdf') {
+    input.value = ''
+    file.value = null
+    error.value = 'Only PDF files are allowed'
+    return
+  }
   file.value = f
   error.value = ''
 }

@@ -21,7 +21,7 @@ async function remove(row: any) {
 
 function fmtBonus(r: any) {
   if (r.poolShare) return 'splits remaining pool'
-  if (r.bonusRate === null) return '— no bonus'
+  if (r.tier === 'admin' || r.bonusRate === null) return '— no bonus'
   return `+${Number(r.bonusRate).toFixed(2)}% bonus`
 }
 function fmtKpi(r: any) {

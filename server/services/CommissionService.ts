@@ -128,7 +128,7 @@ export function applyPayoutFreeze(
     if (paid === undefined) continue
     r.paid = true
     r.total = round2(paid)
-    r.bonus = round2(r.total - r.ownCommission)
+    r.bonus = Math.max(0, round2(r.total - r.ownCommission))
   }
   return rows
 }

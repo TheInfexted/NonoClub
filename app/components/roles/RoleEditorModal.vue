@@ -115,7 +115,7 @@ async function save() {
         </div>
       </div>
 
-      <AppInput v-model="form.bonusRate" type="number" label="Bonus commission rate (%) — optional, leave blank for none" />
+      <AppInput v-if="form.tier !== 'admin'" v-model="form.bonusRate" type="number" label="Bonus commission rate (%) — optional, leave blank for none" />
       <div v-if="showKpi" class="space-y-3 p-3 rounded-lg bg-[var(--color-surface-2)]">
         <label class="flex items-center gap-2 text-[13px] cursor-pointer">
           <input v-model="form.requiresKpi" type="checkbox" class="w-4 h-4 rounded" />
@@ -123,7 +123,7 @@ async function save() {
         </label>
         <AppInput v-if="form.requiresKpi" v-model="form.kpiThreshold" type="number" :label="`KPI threshold (${currencySymbol()} own monthly sales)`" />
       </div>
-      <label class="flex items-center gap-2 text-[13px] text-[var(--color-ink)]">
+      <label class="flex items-center gap-2 text-[13px] text-[var(--color-ink)] cursor-pointer">
         <input v-model="form.poolShare" type="checkbox" class="w-4 h-4 rounded" />
         Splits the remaining monthly pool (club cap − everyone's commissions)
       </label>

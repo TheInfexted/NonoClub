@@ -195,4 +195,10 @@ describe('applyPayoutFreeze', () => {
     applyPayoutFreeze(rows, [{ ambassadorId: 10, amount: '600.00' }, { ambassadorId: 10, amount: '500.00' }])
     expect(rows[0]).toMatchObject({ paid: true, total: 1100, bonus: 100 })
   })
+
+  it('clamps bonus to zero when the frozen payout is below live ownCommission', () => {
+    const rows = [row(10, 5000, 0)]
+    applyPayoutFreeze(rows, [{ ambassadorId: 10, amount: '3000.00' }])
+    expect(rows[0]).toMatchObject({ paid: true, total: 3000, bonus: 0 })
+  })
 })

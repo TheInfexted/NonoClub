@@ -30,6 +30,12 @@ const filteredRows = computed(() => {
   return list.filter(r => r.ambassadorId === Number(ambassadorFilter.value))
 })
 
+// A fully-paid month's record is its payouts — once every row is frozen,
+// the live pool numbers (budget/balance/per-member) no longer describe
+// what happened, so the strip drops them rather than mixing live and frozen figures.
+const monthFullySettled = computed(() =>
+  filteredRows.value.length > 0 && filteredRows.value.every(r => r.paid === true))
+
 const summary = computed(() => {
   const list = filteredRows.value
   const totalOwnSales = list.reduce((a, r) => a + Number(r.ownSales || 0), 0)
@@ -40,8 +46,8 @@ const summary = computed(() => {
     { label: 'Sales pool', prefix: currencySymbol(), value: formatAmount(totalOwnSales) },
     { label: 'Commissions', prefix: currencySymbol(), value: formatAmount(totalCommission) },
     { label: 'Bonuses', prefix: currencySymbol(), value: formatAmount(totalBonus) },
-    ...(pool.value ? [
-      { label: `Budget (${Number(pool.value.capRate)}%)`, prefix: currencySymbol(), value: formatAmount(pool.value.budget) },
+    ...(pool.value && !monthFullySettled.value ? [
+      { label: `Budget (${pool.value.capRate}%)`, prefix: currencySymbol(), value: formatAmount(pool.value.budget) },
       { label: 'Pool balance', prefix: currencySymbol(), value: formatAmount(pool.value.remainder) },
       { label: `Per member (×${pool.value.members})`, prefix: currencySymbol(), value: formatAmount(pool.value.share) },
     ] : []),

@@ -54,7 +54,7 @@ async function saveRename() {
     renaming.value = null
     toast.success('Club updated')
   } catch (e: any) {
-    toast.error(e?.data?.error?.message ?? 'Rename failed')
+    toast.error(e?.data?.error?.message ?? 'Update failed')
   }
 }
 

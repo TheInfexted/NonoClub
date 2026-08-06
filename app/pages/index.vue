@@ -20,7 +20,8 @@ watch(monthList, (list) => {
   else if (Array.isArray(list) && list.length === 0 && !month.value) month.value = currentMonth()
 }, { immediate: true })
 
-const { data: commissions } = useAPI<any[]>(() => month.value ? `/commissions?month=${month.value}` : '')
+const { data: resp } = useAPI<any>(() => month.value ? `/commissions?month=${month.value}` : '')
+const commissions = computed(() => resp.value?.rows ?? [])
 const { data: sales } = useAPI<any[]>(() => month.value ? `/sales?month=${month.value}` : '')
 const { data: leaderboard } = useAPI<any[]>(() => month.value ? `/leaderboard?month=${month.value}&type=all` : '')
 const { data: chartData } = useAPI<Array<{ month: string; totalSales: number; totalCommission: number }>>('/commissions/chart')

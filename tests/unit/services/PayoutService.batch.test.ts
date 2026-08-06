@@ -53,7 +53,7 @@ const admin = { id: 1, roleName: 'admin', tier: 'admin' } as any
 beforeEach(() => { insertedPayouts.length = 0 })
 
 describe('PayoutService.createBatch', () => {
-  it('admin-tier earner gets commission + pool bonus, identical to computeCommissions', async () => {
+  it('admin-tier earner gets base commission + cap-based pool share, identical to computeCommissions', async () => {
     await PayoutService.createBatch(admin, 1, { items: [{ ambassadorId: 11, periodMonth: '2026-04' }] })
     // Mok (admin, poolShare): base 20000*8% = 1600.
     // Sasha (vip, not poolShare): base 30000*8% = 2400, bonus 30000*2% (KPI met) = 600.

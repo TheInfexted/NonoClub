@@ -14,6 +14,8 @@ export const clubs = mysqlTable('clubs', {
   id: int('id').autoincrement().primaryKey(),
   name: varchar('name', { length: 120 }).notNull(),
   logoPath: varchar('logo_path', { length: 500 }),
+  // Monthly commission budget as % of confirmed sales. NULL = no cap/pool.
+  commissionCapRate: decimal('commission_cap_rate', { precision: 5, scale: 2 }),
   ...ts(),
   ...softDelete(),
 })
@@ -34,6 +36,9 @@ export const roles = mysqlTable('roles', {
   // Owner-protection anchor: replaces literal role-name checks ('owner') so
   // companies can rename roles without silently disabling protections.
   isOwner: tinyint('is_owner').default(0).notNull(),
+  // Member of this role splits the club's remaining commission pool
+  // (cap% × sales − everyone's base − other bonuses) equally.
+  poolShare: tinyint('pool_share').default(0).notNull(),
   // Optional per-sale-type rate overrides: { [saleTypeName]: '5.00' }.
   // A sale type without an entry earns the plan's base rate. Resolved at
   // confirmation time — the chosen rate freezes onto the sale as always.

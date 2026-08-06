@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const roles = [
-  { id: 1, name: 'admin', tier: 'admin', baseRate: '8.00', bonusRate: '1.00', requiresKpi: 0, kpiThreshold: null },
+  { id: 1, name: 'admin', tier: 'admin', baseRate: '8.00', bonusRate: '1.00', requiresKpi: 0, kpiThreshold: null, poolShare: 1 },
   { id: 3, name: 'vip', tier: 'ambassador', baseRate: '8.00', bonusRate: '2.00', requiresKpi: 1, kpiThreshold: '30000.00' },
 ]
 const ambassadors = [
@@ -17,6 +17,9 @@ const insertedPayouts: any[] = []
 
 vi.mock('~~/server/repositories/RoleRepository', () => ({
   RoleRepo: { list: vi.fn(async () => roles) },
+}))
+vi.mock('~~/server/repositories/ClubRepository', () => ({
+  ClubRepo: { findById: vi.fn(async (id: number) => ({ id, commissionCapRate: '12.00' })) },
 }))
 vi.mock('~~/server/repositories/AmbassadorRepository', () => ({
   AmbassadorRepo: { list: vi.fn(async () => ambassadors) },
@@ -52,9 +55,13 @@ beforeEach(() => { insertedPayouts.length = 0 })
 describe('PayoutService.createBatch', () => {
   it('admin-tier earner gets commission + pool bonus, identical to computeCommissions', async () => {
     await PayoutService.createBatch(admin, 1, { items: [{ ambassadorId: 11, periodMonth: '2026-04' }] })
-    // commission 20000*8% = 1600; pool bonus 50000*1% = 500
+    // Mok (admin, poolShare): base 20000*8% = 1600.
+    // Sasha (vip, not poolShare): base 30000*8% = 2400, bonus 30000*2% (KPI met) = 600.
+    // budget = 12% of confirmed sales (50000) = 6000; used = 1600 + (2400+600) = 4600;
+    // remainder = 6000 - 4600 = 1400; 1 flagged earner (Mok) => share = 1400.
+    // Mok's payout = base 1600 + share 1400 = 3000.
     expect(insertedPayouts).toHaveLength(1)
-    expect(insertedPayouts[0].amount).toBe('2100.00')
+    expect(insertedPayouts[0].amount).toBe('3000.00')
     expect(insertedPayouts[0].snapshotBonusRate).toBe('1.00')
     expect(insertedPayouts[0].clubId).toBe(1)
   })

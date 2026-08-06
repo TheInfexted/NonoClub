@@ -2,6 +2,7 @@ import { assertCan } from '~~/server/utils/permissions'
 import { like, isNull, and, eq } from 'drizzle-orm'
 import { useDB, schema } from '~~/server/db/client'
 import { computeCommissions, type CommissionRoleConfig, type CommissionEarner } from '~~/server/services/CommissionService'
+import { ClubRepo } from '~~/server/repositories/ClubRepository'
 import { requireClubId } from '~~/server/utils/club'
 
 export default defineEventHandler(async (event) => {
@@ -19,6 +20,8 @@ export default defineEventHandler(async (event) => {
 
   // Load roles, users, and ambassadors once
   const roleRows = await db.select().from(schema.roles)
+  const club = await ClubRepo.findById(clubId)
+  const capRate = club?.commissionCapRate == null ? null : Number(club.commissionCapRate)
 
   const userRows = await db.select({
     id: schema.users.id,
@@ -59,6 +62,7 @@ export default defineEventHandler(async (event) => {
     bonusRate: r.bonusRate === null ? null : Number(r.bonusRate),
     requiresKpi: r.requiresKpi === 1,
     kpiThreshold: r.kpiThreshold === null ? null : Number(r.kpiThreshold),
+    poolShare: r.poolShare === 1,
   }))
 
   const result: Array<{ month: string; totalSales: number; totalCommission: number }> = []
@@ -78,7 +82,7 @@ export default defineEventHandler(async (event) => {
     const totalSales = sales
       .filter(s => s.status === 'confirmed')
       .reduce((a, s) => a + Number(s.amount), 0)
-    const rows = computeCommissions({ month, roles, earners, sales })
+    const { rows } = computeCommissions({ month, roles, earners, sales, capRate })
     const totalCommission = rows.reduce((a, r) => a + r.total, 0)
     result.push({ month, totalSales, totalCommission })
   }

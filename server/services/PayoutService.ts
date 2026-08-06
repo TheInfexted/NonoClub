@@ -3,6 +3,7 @@ import { PayoutRepo } from '~~/server/repositories/PayoutRepository'
 import { RoleRepo } from '~~/server/repositories/RoleRepository'
 import { AmbassadorRepo } from '~~/server/repositories/AmbassadorRepository'
 import { SaleRepo } from '~~/server/repositories/SaleRepository'
+import { ClubRepo } from '~~/server/repositories/ClubRepository'
 import { computeCommissions, type CommissionRoleConfig } from '~~/server/services/CommissionService'
 import { ApiError } from '~~/server/utils/errors'
 import { assertNotOwnerProtected, assertCan, type Actor } from '~~/server/utils/permissions'
@@ -140,13 +141,16 @@ export const PayoutService = {
       bonusRate: r.bonusRate === null ? null : Number(r.bonusRate),
       requiresKpi: r.requiresKpi === 1,
       kpiThreshold: r.kpiThreshold === null ? null : Number(r.kpiThreshold),
+      poolShare: r.poolShare === 1,
     }))
     const ambRows = await AmbassadorRepo.list({ clubId })
     const months = Array.from(new Set(v.items.map(i => i.periodMonth)))
+    const club = await ClubRepo.findById(clubId)
+    const capRate = club?.commissionCapRate == null ? null : Number(club.commissionCapRate)
 
     for (const month of months) {
       const saleRows = await SaleRepo.list({ clubId, month })
-      const rows = computeCommissions({
+      const { rows } = computeCommissions({
         month,
         roles: roleConfigs,
         earners: ambRows.map(a => ({ userId: -a.id, name: a.name, roleId: a.roleId, ambassadorId: a.id })),
@@ -155,6 +159,7 @@ export const PayoutService = {
           status: s.status, type: s.type,
           confirmedCommissionRate: s.confirmedCommissionRate, confirmedBonusRate: s.confirmedBonusRate,
         })),
+        capRate,
       })
       const rowByAmbassador = new Map(rows.map(r => [r.ambassadorId, r]))
 

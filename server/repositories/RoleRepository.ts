@@ -26,6 +26,7 @@ export const RoleRepo = {
     bonusRate: string | null
     kpiThreshold: string | null
     requiresKpi: number
+    poolShare: number
     isSystem?: number
     clubId?: number | null
     rateOverrides?: Record<string, string> | null
@@ -37,6 +38,7 @@ export const RoleRepo = {
       bonusRate: values.bonusRate,
       kpiThreshold: values.kpiThreshold,
       requiresKpi: values.requiresKpi,
+      poolShare: values.poolShare,
       isSystem: values.isSystem ?? 0,
       clubId: values.clubId ?? null,
       rateOverrides: values.rateOverrides ?? null,
@@ -49,6 +51,7 @@ export const RoleRepo = {
     bonusRate: string | null
     kpiThreshold: string | null
     requiresKpi: number
+    poolShare: number
     rateOverrides: Record<string, string> | null
   }>) {
     return useDB().update(schema.roles).set({ ...patch, updatedAt: new Date() }).where(eq(schema.roles.id, id))

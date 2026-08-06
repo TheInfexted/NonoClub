@@ -26,7 +26,7 @@ describe('validateRolePayload', () => {
     const r = validateRolePayload({
       name: 'VIP', tier: 'ambassador', baseRate: 8, bonusRate: 1, requiresKpi: true, kpiThreshold: 30000,
     })
-    expect(r).toEqual({ name: 'VIP', tier: 'ambassador', baseRate: 8, bonusRate: 1, requiresKpi: true, kpiThreshold: 30000 })
+    expect(r).toEqual({ name: 'VIP', tier: 'ambassador', baseRate: 8, bonusRate: 1, requiresKpi: true, kpiThreshold: 30000, poolShare: false })
   })
 
   it('accepts ambassador tier with no bonus', () => {
@@ -47,5 +47,16 @@ describe('validateRolePayload', () => {
     expect(() => validateRolePayload({
       name: '', tier: 'ambassador', baseRate: 0, bonusRate: null, requiresKpi: false, kpiThreshold: null,
     })).toThrow(/name/i)
+  })
+})
+
+const base = { name: 'X', tier: 'admin' as const, baseRate: 10, bonusRate: null, requiresKpi: false, kpiThreshold: null }
+
+describe('validateRolePayload poolShare', () => {
+  it('defaults poolShare to false', () => {
+    expect(validateRolePayload(base).poolShare).toBe(false)
+  })
+  it('passes poolShare through', () => {
+    expect(validateRolePayload({ ...base, poolShare: true }).poolShare).toBe(true)
   })
 })

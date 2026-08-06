@@ -10,6 +10,7 @@ const PayloadSchema = z.object({
   bonusRate: z.number().min(0).max(100).nullable(),
   requiresKpi: z.boolean(),
   kpiThreshold: z.number().min(0).nullable(),
+  poolShare: z.boolean().optional().default(false),
   // Per-sale-type rate overrides; types without an entry use baseRate.
   rateOverrides: z.record(z.string().trim().min(1).max(40), z.number().min(0).max(100))
     .refine(o => Object.keys(o).length <= 20, 'Too many overrides')
@@ -88,6 +89,7 @@ export const RoleService = {
       bonusRate: v.bonusRate === null ? null : v.bonusRate.toFixed(2),
       kpiThreshold: v.kpiThreshold === null ? null : v.kpiThreshold.toFixed(2),
       requiresKpi: v.requiresKpi ? 1 : 0,
+      poolShare: v.poolShare ? 1 : 0,
       clubId,
       rateOverrides: v.rateOverrides
         ? Object.fromEntries(Object.entries(v.rateOverrides).map(([k, n]) => [k, n.toFixed(2)]))
@@ -129,6 +131,7 @@ export const RoleService = {
       bonusRate: v.bonusRate === null ? null : v.bonusRate.toFixed(2),
       kpiThreshold: v.kpiThreshold === null ? null : v.kpiThreshold.toFixed(2),
       requiresKpi: v.requiresKpi ? 1 : 0,
+      poolShare: v.poolShare ? 1 : 0,
       rateOverrides: v.rateOverrides === undefined ? undefined : (
         v.rateOverrides
           ? Object.fromEntries(Object.entries(v.rateOverrides).map(([k, n]) => [k, n.toFixed(2)]))

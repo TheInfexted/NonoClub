@@ -11,6 +11,7 @@ interface Role {
   bonusRate: string | number | null
   kpiThreshold: string | number | null
   requiresKpi: number | boolean
+  poolShare?: number | boolean
   isSystem?: number
   rateOverrides?: Record<string, string> | null
 }
@@ -30,7 +31,7 @@ const activeTypes = computed(() => (saleTypes.value ?? []).filter(t => t.isActiv
 
 const blank = (): Role => ({
   name: '', tier: 'ambassador', baseRate: 0, bonusRate: null,
-  kpiThreshold: null, requiresKpi: false, isSystem: 0,
+  kpiThreshold: null, requiresKpi: false, poolShare: false, isSystem: 0,
 })
 const form = ref<Role>(blank())
 const overrides = ref<Record<string, number | ''>>({})
@@ -42,6 +43,7 @@ watch([() => props.role, activeTypes], ([r]) => {
     bonusRate: r.bonusRate === null ? null : Number(r.bonusRate),
     kpiThreshold: r.kpiThreshold === null ? null : Number(r.kpiThreshold),
     requiresKpi: !!r.requiresKpi,
+    poolShare: !!r.poolShare,
   } : blank()
   const seeded: Record<string, number | ''> = {}
   for (const t of activeTypes.value) {
@@ -68,6 +70,7 @@ async function save() {
       bonusRate: form.value.bonusRate === null || form.value.bonusRate === '' ? null : Number(form.value.bonusRate),
       requiresKpi: !!form.value.requiresKpi,
       kpiThreshold: form.value.kpiThreshold === null || form.value.kpiThreshold === '' ? null : Number(form.value.kpiThreshold),
+      poolShare: !!form.value.poolShare,
       rateOverrides: filled.length ? Object.fromEntries(filled) : null,
     }
     if (isEdit.value) await m.put(`/roles/${props.role!.id}`, payload)
@@ -120,6 +123,10 @@ async function save() {
         </label>
         <AppInput v-if="form.requiresKpi" v-model="form.kpiThreshold" type="number" :label="`KPI threshold (${currencySymbol()} own monthly sales)`" />
       </div>
+      <label class="flex items-center gap-2 text-[13px] text-[var(--color-ink)]">
+        <input v-model="form.poolShare" type="checkbox" class="w-4 h-4 rounded" />
+        Splits the remaining monthly pool (club cap − everyone's commissions)
+      </label>
       <p class="text-[11px] text-[var(--color-muted-2)]">
         Changes affect future sale confirmations only. Bonus uses current settings until the month's batch payout is created.
       </p>

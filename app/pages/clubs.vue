@@ -8,6 +8,7 @@ const auth = useAuthStore()
 const { activeClubId, setClub, refreshClubs } = useClub()
 const { data: clubs, refresh } = useAPI<Array<{
   id: number; name: string; logoPath: string | null; ambassadors: number; sales: number
+  commissionCapRate: string | null
 }>>('/clubs?stats=1')
 
 const m = useAPIMutation()
@@ -19,7 +20,7 @@ const isAdmin = computed(() => auth.user?.tier === 'admin')
 const showCreate = ref(false)
 const newName = ref('')
 const creating = ref(false)
-const renaming = ref<{ id: number; name: string } | null>(null)
+const renaming = ref<{ id: number; name: string; commissionCapRate: string } | null>(null)
 
 async function createClub() {
   const name = newName.value.trim()
@@ -44,11 +45,14 @@ async function saveRename() {
   const { id, name } = renaming.value
   if (!name.trim()) return
   try {
-    await m.put(`/clubs/${id}`, { name: name.trim() })
+    await m.put(`/clubs/${id}`, {
+      name: name.trim(),
+      commissionCapRate: renaming.value.commissionCapRate === '' ? null : Number(renaming.value.commissionCapRate),
+    })
     await Promise.all([refresh(), refreshClubs()])
     useState('branding-rev', () => 0).value++
     renaming.value = null
-    toast.success('Club renamed')
+    toast.success('Club updated')
   } catch (e: any) {
     toast.error(e?.data?.error?.message ?? 'Rename failed')
   }
@@ -115,7 +119,10 @@ function switchTo(id: number) {
           <span v-else class="text-[12px] text-[var(--color-muted-2)]">You're working in this club.</span>
           <span class="flex-1" />
           <template v-if="isAdmin">
-            <AppButton size="sm" variant="secondary" @click="renaming = { id: c.id, name: c.name }">Rename</AppButton>
+            <AppButton
+              size="sm" variant="secondary"
+              @click="renaming = { id: c.id, name: c.name, commissionCapRate: c.commissionCapRate == null ? '' : String(Number(c.commissionCapRate)) }"
+            >Edit</AppButton>
             <AppButton
               size="sm" variant="danger"
               :disabled="c.ambassadors > 0 || c.sales > 0 || (clubs ?? []).length <= 1"
@@ -139,8 +146,11 @@ function switchTo(id: number) {
       </template>
     </AppModal>
 
-    <AppModal :open="!!renaming" title="Rename club" @close="renaming = null">
-      <AppInput v-if="renaming" v-model="renaming.name" label="Club name" @keyup.enter="saveRename" />
+    <AppModal :open="!!renaming" title="Edit club" @close="renaming = null">
+      <div v-if="renaming" class="space-y-3">
+        <AppInput v-model="renaming.name" label="Club name" @keyup.enter="saveRename" />
+        <AppInput v-model="renaming.commissionCapRate" type="number" label="Commission cap (% of monthly sales) — blank for none" />
+      </div>
       <template #footer>
         <AppButton variant="ghost" @click="renaming = null">Cancel</AppButton>
         <AppButton :disabled="!renaming?.name.trim()" @click="saveRename">Save</AppButton>

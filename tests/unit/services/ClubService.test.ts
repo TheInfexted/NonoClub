@@ -23,6 +23,7 @@ vi.mock('~~/server/repositories/SaleTypeRepository', () => ({
 }))
 
 import { ClubService } from '~~/server/services/ClubService'
+import { ClubRepo } from '~~/server/repositories/ClubRepository'
 
 const admin = { id: 1, roleName: 'admin', tier: 'admin' } as any
 const nonAdmin = { id: 9, roleName: 'x', tier: 'ambassador' } as any
@@ -53,6 +54,23 @@ describe('ClubService', () => {
   it('update and remove require admin tier', async () => {
     await expect(ClubService.update(nonAdmin, 1, { name: 'X' })).rejects.toMatchObject({ statusCode: 403 })
     await expect(ClubService.remove(nonAdmin, 1)).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('update persists a numeric commission cap as a decimal string', async () => {
+    await ClubService.update(admin, 1, { name: 'Nono', commissionCapRate: 12 })
+    expect(ClubRepo.update).toHaveBeenCalledWith(1, { name: 'Nono', commissionCapRate: '12.00' })
+  })
+
+  it('update persists an explicit null commission cap', async () => {
+    await ClubService.update(admin, 1, { name: 'Nono', commissionCapRate: null })
+    expect(ClubRepo.update).toHaveBeenCalledWith(1, { name: 'Nono', commissionCapRate: null })
+  })
+
+  it('update omits commission cap from the patch when not provided', async () => {
+    await ClubService.update(admin, 1, { name: 'Nono' })
+    expect(ClubRepo.update).toHaveBeenCalledWith(1, { name: 'Nono' })
+    const patch = vi.mocked(ClubRepo.update).mock.calls.at(-1)?.[1]
+    expect(patch).not.toHaveProperty('commissionCapRate')
   })
 
   it('cannot delete the last remaining club', async () => {

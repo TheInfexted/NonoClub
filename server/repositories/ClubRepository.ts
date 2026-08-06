@@ -11,7 +11,7 @@ export const ClubRepo = {
   insert(values: { name: string; logoPath?: string | null }) {
     return useDB().insert(schema.clubs).values({ name: values.name, logoPath: values.logoPath ?? null })
   },
-  update(id: number, patch: Partial<{ name: string; logoPath: string | null }>) {
+  update(id: number, patch: Partial<{ name: string; logoPath: string | null; commissionCapRate: string | null }>) {
     return useDB().update(schema.clubs).set({ ...patch, updatedAt: new Date() }).where(eq(schema.clubs.id, id))
   },
   softDelete(id: number) {

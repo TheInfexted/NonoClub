@@ -6,6 +6,10 @@ import { ApiError } from '~~/server/utils/errors'
 import { assertCan, type Actor } from '~~/server/utils/permissions'
 
 const NameSchema = z.object({ name: z.string().min(1).max(120) })
+const UpdateSchema = z.object({
+  name: z.string().min(1).max(120),
+  commissionCapRate: z.number().min(0).max(100).nullable().optional(),
+})
 
 function assertAdminTier(actor: Actor & { tier?: string }) {
   assertCan(actor, 'clubs', 'edit')
@@ -60,8 +64,14 @@ export const ClubService = {
     assertAdminTier(actor)
     const club = await ClubRepo.findById(id)
     if (!club || club.deletedAt) throw ApiError.notFound('Club')
-    const v = NameSchema.partial().parse(body)
-    await ClubRepo.update(id, v)
+    const v = UpdateSchema.parse(body)
+    const patch = {
+      name: v.name,
+      ...(v.commissionCapRate === undefined
+        ? {}
+        : { commissionCapRate: v.commissionCapRate === null ? null : v.commissionCapRate.toFixed(2) }),
+    }
+    await ClubRepo.update(id, patch)
     return ClubRepo.findById(id)
   },
 

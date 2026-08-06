@@ -9,7 +9,9 @@ const isAdmin = computed(() => auth.user?.tier === 'admin')
 const month = ref('')
 const ambassadorFilter = ref<number | ''>('')
 const { data: monthList } = useAPI<string[]>('/commissions/months')
-const { data: rows } = useAPI<any[]>(() => month.value ? `/commissions?month=${month.value}` : '')
+const { data: resp } = useAPI<any>(() => month.value ? `/commissions?month=${month.value}` : '')
+const rows = computed(() => resp.value?.rows ?? [])
+const pool = computed(() => resp.value?.pool ?? null)
 const { data: ambassadors } = useAPI<any[]>('/ambassadors')
 
 watch(monthList, (list) => {
@@ -23,7 +25,7 @@ const monthLabel = computed(() => {
 })
 
 const filteredRows = computed(() => {
-  const list = rows.value ?? []
+  const list = rows.value
   if (!ambassadorFilter.value) return list
   return list.filter(r => r.ambassadorId === Number(ambassadorFilter.value))
 })
@@ -38,6 +40,11 @@ const summary = computed(() => {
     { label: 'Sales pool', prefix: currencySymbol(), value: formatAmount(totalOwnSales) },
     { label: 'Commissions', prefix: currencySymbol(), value: formatAmount(totalCommission) },
     { label: 'Bonuses', prefix: currencySymbol(), value: formatAmount(totalBonus) },
+    ...(pool.value ? [
+      { label: `Budget (${Number(pool.value.capRate)}%)`, prefix: currencySymbol(), value: formatAmount(pool.value.budget) },
+      { label: 'Pool balance', prefix: currencySymbol(), value: formatAmount(pool.value.remainder) },
+      { label: `Per member (×${pool.value.members})`, prefix: currencySymbol(), value: formatAmount(pool.value.share) },
+    ] : []),
   ]
 })
 
@@ -166,7 +173,9 @@ async function exportReport() {
         <td class="px-4 py-3 text-[13px] text-right text-[var(--color-muted)] tabular">{{ formatRM(row.ownSales) }}</td>
         <td class="px-4 py-3 text-[13px] text-right text-[var(--color-muted)] tabular">{{ formatRM(row.ownCommission) }}</td>
         <td class="px-4 py-3 text-[13px] text-right text-[var(--color-muted)] tabular">{{ formatRM(row.bonus) }}</td>
-        <td class="px-4 py-3 text-[13px] text-right font-semibold text-[var(--color-brand-dark)] tabular">{{ formatRM(row.total) }}</td>
+        <td class="px-4 py-3 text-[13px] text-right font-semibold text-[var(--color-brand-dark)] tabular">
+          <AppBadge v-if="row.paid" tone="emerald" class="mr-1.5">Paid</AppBadge>{{ formatRM(row.total) }}
+        </td>
       </template>
     </AppTable>
   </div>
